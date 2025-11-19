@@ -4,11 +4,11 @@ from qiskit import transpile
 from circuits import make_bell_circuit
 
 
-def simulator(quantum_circuit):
+def simulator(qc):
     sim = AerSimulator()
 
-    qc = quantum_circuit()
-    print(qc)
+    if __name__ == "__main__":
+        print(qc)
 
     tqc = transpile(qc, sim)
 
@@ -18,6 +18,8 @@ def simulator(quantum_circuit):
 
     print("Simulator Count: ", counts)
 
+    return counts
+
 
 if __name__ == "__main__":
-    simulator(make_bell_circuit)
+    simulator(make_bell_circuit())

@@ -31,6 +31,8 @@ def qpu(quantum_circuit):
     result = job_result[0].data['c'].get_counts()
     print("IBM Backend Result: ", result)
 
+    return result
+
 
 if __name__ == "__main__":
     qpu(make_bell_circuit)
