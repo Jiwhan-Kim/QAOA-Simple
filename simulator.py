@@ -4,17 +4,21 @@ from qiskit import transpile
 from circuits import make_bell_circuit
 
 
-def simulator(qc):
+def simulator(qcs):
     sim = AerSimulator()
 
     if __name__ == "__main__":
-        print(qc)
+        for qc in qcs:
+            print(qc)
 
-    tqc = transpile(qc, sim)
+    tqcs = [transpile(qc, sim) for qc in qcs]
 
-    job = sim.run(tqc, shots=1024)
+    job = sim.run(tqcs, shots=1024)
     result = job.result()
     counts = result.get_counts()
+
+    if not isinstance(counts, list):
+        counts = [counts]
 
     print("Simulator Count: ", counts)
 
@@ -22,4 +26,4 @@ def simulator(qc):
 
 
 if __name__ == "__main__":
-    simulator(make_bell_circuit())
+    simulator([make_bell_circuit()])

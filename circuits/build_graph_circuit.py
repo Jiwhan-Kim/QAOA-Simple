@@ -26,10 +26,6 @@ def create_graph(n_qubits: int):
     return edge_list
 
 
-def create_random_graph(n_qubits: int):
-    pass
-
-
 def qaoa_layer(qc, gamma: float, beta: float, n_qubits: int, edge_list: list[tuple[int, int, float]]):
     for i, j, weight in edge_list:
         qc.cx(i, j)
@@ -58,6 +54,9 @@ def build_graph_circuit(gammas, betas, layers: int, n_qubits: int):
 
 
 def maxcut_value(bitstring, edge_list):
+    # bitstring: "010101"
+    # bits     : "101010"
+
     bits = bitstring[::-1]
     value = 0
     for i, j, weight in edge_list:
@@ -66,15 +65,21 @@ def maxcut_value(bitstring, edge_list):
     return value
 
 
-def expectation(counts, edge_list):
+def expectation(results, edge_list):
     total = 0
     shots = 0
 
-    for bitstr, count in counts.items():
-        total += maxcut_value(bitstr, edge_list) * count
-        shots += count
+    list_ret = []
 
-    return total / shots
+    for result in results:
+        for bitstr, count in result.items():
+            total += maxcut_value(bitstr, edge_list) * count
+            shots += count
+        list_ret.append(total / shots)
+        total = 0
+        shots = 0
+
+    return list_ret
 
 
 if __name__ == "__main__":

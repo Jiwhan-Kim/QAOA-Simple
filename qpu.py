@@ -4,7 +4,7 @@ from qiskit import transpile
 from circuits import make_bell_circuit
 
 
-def qpu(quantum_circuit):
+def qpu(qcs):
     service = QiskitRuntimeService()
 
     print("Backend:")
@@ -16,23 +16,24 @@ def qpu(quantum_circuit):
         operational=True, simulator=False, min_num_qubits=5)
     print("Using backend:", backend.name)
 
-    qc = quantum_circuit()
-    print(qc)
+    if __name__ == "__main__":
+        for qc in qcs:
+            print(qc[0])
 
-    tqc = transpile(qc, backend=backend)
+    tqcs = [transpile(qc, backend=backend) for qc in qcs]
 
     sampler = SamplerV2(mode=backend)
 
     # When running multiple circuits, just add in the list
-    job = sampler.run([tqc], shots=1024)
-    job_result = job.result()
+    job = sampler.run(tqcs, shots=1024)
+    job_results = job.result()
 
     # When running multiple circuits, change index from 0 to idx
-    result = job_result[0].data['c'].get_counts()
+    result = [job_result.data['c'].get_counts() for job_result in job_results]
     print("IBM Backend Result: ", result)
 
     return result
 
 
 if __name__ == "__main__":
-    qpu(make_bell_circuit)
+    qpu([make_bell_circuit(), make_bell_circuit()])
