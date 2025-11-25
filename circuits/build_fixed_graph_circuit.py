@@ -36,7 +36,7 @@ def qaoa_layer(qc, gamma: float, beta: float, n_qubits: int, edge_list: list[tup
         qc.rx(2 * beta, i)
 
 
-def build_graph_circuit(gammas, betas, layers: int, n_qubits: int):
+def build_fixed_graph_circuit(gammas, betas, layers: int, n_qubits: int):
     edge_list = create_graph(n_qubits)
 
     qregs = QuantumRegister(n_qubits)

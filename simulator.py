@@ -20,7 +20,8 @@ def simulator(qcs):
     if not isinstance(counts, list):
         counts = [counts]
 
-    print("Simulator Count: ", counts)
+    if __name__ == "__main__":
+        print("Simulator Count: ", counts)
 
     return counts
 

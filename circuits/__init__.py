@@ -1,2 +1,3 @@
 from .bell_state import make_bell_circuit
-from .build_graph_circuit import build_graph_circuit, expectation
+from .build_random_graph_circuit import build_random_graph_circuit, expectation
+from .build_fixed_graph_circuit import build_fixed_graph_circuit, expectation

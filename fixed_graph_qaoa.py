@@ -3,7 +3,7 @@ import argparse
 from qpu import qpu
 from simulator import simulator
 
-from circuits import build_graph_circuit, expectation
+from circuits import build_fixed_graph_circuit, expectation
 
 import numpy as np
 
@@ -20,7 +20,7 @@ def run_on_simulator():
 
     for gamma in grid:
         for beta in grid:
-            edge_list, qc = build_graph_circuit([gamma], [beta], 1, 5)
+            edge_list, qc = build_fixed_graph_circuit([gamma], [beta], 1, 5)
 
             edge_lists.append(edge_list)
             qcs.append(qc)
@@ -53,7 +53,7 @@ def run_on_qpu():
 
     for gamma in grid:
         for beta in grid:
-            edge_list, qc = build_graph_circuit([gamma], [beta], 1, 5)
+            edge_list, qc = build_fixed_graph_circuit([gamma], [beta], 1, 5)
 
             edge_lists.append(edge_list)
             qcs.append(qc)
