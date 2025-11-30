@@ -6,17 +6,16 @@ from sim_sampler import sim_sampler
 from sim_estimator import sim_estimator
 
 from circuits import build_qaoa, build_hamiltonian, maxcut_value, expectation, plot_result, print_result
+from optims import Adam
 
 from graphs.long_graph import create_long_graph
 
-from scipy.optimize import minimize
 
 import numpy as np
 import rustworkx as rx
 from rustworkx.visualization import mpl_draw
 import matplotlib.pyplot as plt
 
-opt = 'BFGS'
 n_qubits = 20
 n_layers = 2
 n_iterations = 30
@@ -40,8 +39,8 @@ def maxcut_grad(run,
         plus = thetas.copy()
         minus = thetas.copy()
 
-        plus[idx] += np.pi / 2.0
-        minus[idx] -= np.pi / 2.0
+        plus[idx] += np.pi / 4.0
+        minus[idx] -= np.pi / 4.0
 
         params.append(plus)
         params.append(minus)
@@ -56,22 +55,14 @@ def maxcut_grad(run,
     plus = exp_cut[0:4*n_qubits:2]
     minus = exp_cut[1:4*n_qubits:2]
 
-    grad = [0.5 * (p - m) for p, m in zip(plus, minus)]
+    grad = [(p - m) for p, m in zip(plus, minus)]
     return grad
-
-
-def get_cost_only(thetas: list[float],
-                  run,
-                  edge_list: rx.WeightedEdgeList):
-    cost = maxcut_cost(run, edge_list, thetas)
-    print(f"Cost: {cost}")
-
-    return cost
 
 
 def get_cost_grad(thetas: list[float],
                   run,
                   edge_list: rx.WeightedEdgeList):
+    print(f"Current Thetas: {thetas}")
     cost = maxcut_cost(run, edge_list, thetas)
     grad = [grad for grad in maxcut_grad(run, edge_list, thetas)]
 
@@ -82,33 +73,44 @@ def get_cost_grad(thetas: list[float],
     return cost, grad
 
 
+lr = 0.5
+beta1 = 0.9
+beta2 = 0.999
+eps = 1e-8
+
+
+def minimize(run, thetas, edge_list, max_iterations: int = 30):
+    optimizer = Adam(lr, beta1, beta2, eps, max_iterations)
+
+    for _ in range(max_iterations):
+        _, grad = get_cost_grad(thetas, run, edge_list)
+        thetas = optimizer.step(thetas, grad)
+        thetas = [((theta + np.pi) % (2 * np.pi) - np.pi) for theta in thetas]
+
+    return thetas
+
+
 def simulator():
     graph, edge_list = create_long_graph(n_qubits)
     if args.draw != 0:
         mpl_draw(graph, with_labels=True, node_color='lightblue', font_size=15)
         plt.show()
 
-    thetas = 2 * np.pi * np.random.rand(2 * n_layers)
+    thetas = 2 * np.pi * (np.random.rand(2 * n_layers) - 0.5)
     hamiltonian = build_hamiltonian(n_qubits, edge_list)
 
     # Training
-    if opt == 'BFGS':
-        minimizer = minimize(get_cost_grad, thetas, args=(
-            lambda qcs: sim_estimator(
-                qcs, hamiltonian, 4096
-            ),
-            edge_list),
-            method="BFGS", jac=True, options={"maxiter": n_iterations})
-    else:
-        minimizer = minimize(get_cost_only, thetas, args=(
-            lambda qcs: sim_estimator(
-                qcs, hamiltonian, 4096
-            ),
-            edge_list),
-            method="COBYLA", options={"maxiter": n_iterations})
+    minimizer = minimize(
+        lambda qcs: sim_estimator(
+            qcs, hamiltonian, 4096
+        ),
+        thetas,
+        edge_list,
+        n_iterations
+    )
 
     print(minimizer)
-    thetas = minimizer.x
+    thetas = minimizer
 
     # Inference
     qc = build_qaoa(
@@ -135,21 +137,17 @@ def qpu():
 
     with Session(backend=backend) as session:
         # Training
-        if opt == 'BFGS':
-            minimizer = minimize(get_cost_grad, thetas, args=(
-                lambda qcs: qpu_estimator(
-                    backend, session, qcs, hamiltonian, 4096),
-                edge_list),
-                method="BFGS", jac=True, options={"maxiter": n_iterations})
-        else:
-            minimizer = minimize(get_cost_only, thetas, args=(
-                lambda qcs: qpu_estimator(
-                    backend, session, qcs, hamiltonian, 4096),
-                edge_list),
-                method="COBYLA", options={"maxiter": n_iterations})
+        minimizer = minimize(
+            lambda qcs: qpu_estimator(
+                backend, session, qcs, hamiltonian, 4096
+            ),
+            thetas,
+            edge_list,
+            n_iterations
+        )
 
         print(minimizer)
-        thetas = minimizer.x
+        thetas = minimizer
 
         # Inference
         qc = build_qaoa(
@@ -171,8 +169,6 @@ parser.add_argument('--env', required=False,
 parser.add_argument('--qubits', required=False, type=int, default=15)
 parser.add_argument('--layers', required=False, type=int, default=2)
 parser.add_argument('--iters', required=False, type=int, default=30)
-parser.add_argument('--opt', required=False, default='BFGS',
-                    choices=['BFGS', 'COBYLA'])
 args = parser.parse_args()
 
 
@@ -189,5 +185,4 @@ if __name__ == "__main__":
     n_qubits = args.qubits
     n_layers = args.layers
     n_iterations = args.iters
-    opt = args.opt
     main()
