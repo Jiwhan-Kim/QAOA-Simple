@@ -76,7 +76,7 @@ def minimize(run, thetas, edge_list, max_iterations: int = 30):
     min_thetas = thetas.copy()
 
     for iter in range(max_iterations):
-        cost, grad = maxcut_grad(thetas, run, edge_list)
+        cost, grad = maxcut_grad(run, edge_list, thetas)
         if cost < min_cost:
             min_cost = cost
             min_thetas = thetas.copy()
@@ -87,12 +87,15 @@ def minimize(run, thetas, edge_list, max_iterations: int = 30):
         print(f"Iteration {iter + 1}")
         print(f"Prev. Iteration's Cost: {cost}")
         print(f"Gradient: {grad}")
+        print(f"Updated Params: {thetas}\n")
 
     cost = maxcut_cost(run, edge_list, thetas)
     if cost < min_cost:
         min_cost = cost
         min_thetas = thetas.copy()
 
+    print(f"Best Cost: {min_cost}")
+    print(f"Best Params: {min_thetas}\n")
     return min_thetas
 
 
@@ -108,7 +111,7 @@ def simulator():
     hamiltonian = build_hamiltonian(n_qubits, edge_list)
 
     # Training
-    minimizer = minimize(
+    thetas = minimize(
         lambda qcs: sim_estimator(
             qcs, hamiltonian, 4096
         ),
@@ -117,13 +120,10 @@ def simulator():
         n_iterations
     )
 
-    print(f"Best Params: {minimizer}")
-    thetas = minimizer
-
     # Inference
     qc = build_qaoa(
         edge_list, thetas[:n_layers], thetas[n_layers:], n_layers, n_qubits)
-    print(f"Count Gate: {qc.count_ops}")
+    print(f"Count Gate: {qc.count_ops()}")
     results = sim_sampler([qc])
 
     plot_results = plot_result(results, edge_list)
@@ -145,7 +145,7 @@ def qpu():
 
     with Session(backend=backend) as session:
         # Training
-        minimizer = minimize(
+        thetas = minimize(
             lambda qcs: qpu_estimator(
                 backend, session, qcs, hamiltonian, 4096
             ),
@@ -154,13 +154,10 @@ def qpu():
             n_iterations
         )
 
-        print(f"Best Params: {minimizer}")
-        thetas = minimizer
-
         # Inference
         qc = build_qaoa(
             edge_list, thetas[:n_layers], thetas[n_layers:], n_layers, n_qubits)
-        print(f"Count Gate: {qc.count_ops}")
+        print(f"Count Gate: {qc.count_ops()}")
         results = qpu_sampler(backend, session, [qc])
 
     plot_results = plot_result(results, edge_list)
