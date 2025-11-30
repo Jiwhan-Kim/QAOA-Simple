@@ -13,15 +13,17 @@ def create_graph(n_qubits: int):
     edge_list = [
         (0, 1, 1.0),
         (0, 2, 1.0),
-        (0, 4, 1.0),
         (1, 2, 1.0),
         (2, 3, 1.0),
         (3, 4, 1.0),
+        (3, 5, 1.0),
+        (4, 5, 1.0),
     ]
+
     graph.add_edges_from(edge_list)
 
-    # mpl_draw(graph, with_labels=True, node_color='lightblue', font_size=15)
-    # plt.show()
+    mpl_draw(graph, with_labels=True, node_color='lightblue', font_size=15)
+    plt.show()
 
     return edge_list
 
@@ -49,7 +51,7 @@ def build_fixed_graph_circuit(gammas, betas, layers: int, n_qubits: int):
     for layer in range(layers):
         qaoa_layer(qc, gammas[layer], betas[layer], n_qubits, edge_list)
 
-    qc.measure([0, 1, 2, 3, 4], [0, 1, 2, 3, 4])
+    qc.measure([0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5])
     return edge_list, qc
 
 
@@ -83,4 +85,4 @@ def expectation(results, edge_list):
 
 
 if __name__ == "__main__":
-    create_graph(5)
+    create_graph(6)
