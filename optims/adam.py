@@ -41,7 +41,7 @@ class Adam:
             v_hat = self.v[i] / (1.0 - self.beta2 ** self.t)
 
             # parameter update
-            theta = theta - (lr_t * (0.9 ** self.t)) * \
+            theta = theta - lr_t * \
                 m_hat / (math.sqrt(v_hat) + self.eps)
             new_params.append(theta)
 

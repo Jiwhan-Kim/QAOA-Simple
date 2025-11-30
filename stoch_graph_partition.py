@@ -5,7 +5,7 @@ from qpu_estimator import qpu_estimator
 from sim_sampler import sim_sampler
 from sim_estimator import sim_estimator
 
-from circuits import build_qaoa, build_hamiltonian, maxcut_value, expectation, plot_result, print_result
+from circuits import build_qaoa, build_hamiltonian, plot_result, print_result
 from optims import Adam
 
 from graphs.long_graph import create_long_graph
@@ -16,9 +16,9 @@ import rustworkx as rx
 from rustworkx.visualization import mpl_draw
 import matplotlib.pyplot as plt
 
-n_qubits = 20
+n_qubits = 15
 n_layers = 2
-n_iterations = 30
+n_iterations = 50
 
 
 def maxcut_cost(run,
@@ -35,6 +35,8 @@ def maxcut_grad(run,
                 edge_list: rx.WeightedEdgeList,
                 thetas: list[float]):
     params = []
+    params.append(thetas.copy())
+
     for idx in range(2 * n_layers):
         plus = thetas.copy()
         minus = thetas.copy()
@@ -48,6 +50,8 @@ def maxcut_grad(run,
     results = run([build_qaoa(
         edge_list, param[:n_layers], param[n_layers:], n_layers, n_qubits)
         for param in params])
+    cost = results[0]
+    results = results[1:]
 
     exp_cut = [result[0] for result in results]
     # exp_cut = expectation(result, edge_list)
@@ -56,38 +60,40 @@ def maxcut_grad(run,
     minus = exp_cut[1:4*n_qubits:2]
 
     grad = [(p - m) for p, m in zip(plus, minus)]
-    return grad
-
-
-def get_cost_grad(thetas: list[float],
-                  run,
-                  edge_list: rx.WeightedEdgeList):
-    print(f"Current Thetas: {thetas}")
-    cost = maxcut_cost(run, edge_list, thetas)
-    grad = [grad for grad in maxcut_grad(run, edge_list, thetas)]
-
-    print(f"Cost: {cost}")
-    print(f"Grad: {grad}")
-
-    # return cost
     return cost, grad
 
 
-lr = 0.5
-beta1 = 0.9
-beta2 = 0.999
+lr = 0.05
+beta1 = 0.5
+beta2 = 0.9
 eps = 1e-8
 
 
 def minimize(run, thetas, edge_list, max_iterations: int = 30):
     optimizer = Adam(lr, beta1, beta2, eps, max_iterations)
 
-    for _ in range(max_iterations):
-        _, grad = get_cost_grad(thetas, run, edge_list)
+    min_cost = len(edge_list) + 1
+    min_thetas = thetas.copy()
+
+    for iter in range(max_iterations):
+        cost, grad = maxcut_grad(thetas, run, edge_list)
+        if cost < min_cost:
+            min_cost = cost
+            min_thetas = thetas.copy()
+
         thetas = optimizer.step(thetas, grad)
         thetas = [((theta + np.pi) % (2 * np.pi) - np.pi) for theta in thetas]
 
-    return thetas
+        print(f"Iteration {iter + 1}")
+        print(f"Prev. Iteration's Cost: {cost}")
+        print(f"Gradient: {grad}")
+
+    cost = maxcut_cost(run, edge_list, thetas)
+    if cost < min_cost:
+        min_cost = cost
+        min_thetas = thetas.copy()
+
+    return min_thetas
 
 
 def simulator():
@@ -96,7 +102,9 @@ def simulator():
         mpl_draw(graph, with_labels=True, node_color='lightblue', font_size=15)
         plt.show()
 
-    thetas = 2 * np.pi * (np.random.rand(2 * n_layers) - 0.5)
+    # thetas = 2 * np.pi * (np.random.rand(2 * n_layers) - 0.5)
+    thetas = [np.pi for _ in range(n_layers)] + \
+        [0.5 * np.pi for _ in range(n_layers)]
     hamiltonian = build_hamiltonian(n_qubits, edge_list)
 
     # Training
@@ -109,15 +117,13 @@ def simulator():
         n_iterations
     )
 
-    print(minimizer)
+    print(f"Best Params: {minimizer}")
     thetas = minimizer
 
     # Inference
     qc = build_qaoa(
         edge_list, thetas[:n_layers], thetas[n_layers:], n_layers, n_qubits)
-    print("Count Gate:")
-    print(qc.count_ops())
-
+    print(f"Count Gate: {qc.count_ops}")
     results = sim_sampler([qc])
 
     plot_results = plot_result(results, edge_list)
@@ -132,7 +138,9 @@ def qpu():
         mpl_draw(graph, with_labels=True, node_color='lightblue', font_size=15)
         plt.show()
 
-    thetas = 2 * np.pi * np.random.rand(2 * n_layers)
+    # thetas = 2 * np.pi * np.random.rand(2 * n_layers)
+    thetas = [np.pi for _ in range(n_layers)] + \
+        [0.5 * np.pi for _ in range(n_layers)]
     hamiltonian = build_hamiltonian(n_qubits, edge_list)
 
     with Session(backend=backend) as session:
@@ -146,16 +154,14 @@ def qpu():
             n_iterations
         )
 
-        print(minimizer)
+        print(f"Best Params: {minimizer}")
         thetas = minimizer
 
         # Inference
         qc = build_qaoa(
             edge_list, thetas[:n_layers], thetas[n_layers:], n_layers, n_qubits)
-        print("Count Gate:")
-        print(qc.count_ops())
-
-        results = qpu_sampler(backend, session, [qc], 4096)
+        print(f"Count Gate: {qc.count_ops}")
+        results = qpu_sampler(backend, session, [qc])
 
     plot_results = plot_result(results, edge_list)
     print_result(plot_results)
